@@ -306,6 +306,39 @@ class UploadMultipartFormDataTestCase: BaseTestCase {
         }
     }
 
+    func testThatCustomBoundaryCanBeSetWhenUploadingMultipartFormData() throws {
+        // Given
+        let urlRequest = try URLRequest(url: "https://httpbin.org/post", method: .post)
+        let uploadData = Data("upload_data".utf8)
+
+        let formData = MultipartFormData(fileManager: .default, boundary: "custom-test-boundary")
+        formData.append(uploadData, withName: "upload_data")
+
+        let expectation = self.expectation(description: "multipart form data upload should succeed")
+        var response: DataResponse<Data?>?
+
+        // When
+        AF.upload(multipartFormData: formData, with: urlRequest).response { resp in
+            response = resp
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertNotNil(response?.request)
+        XCTAssertNotNil(response?.response)
+        XCTAssertNotNil(response?.data)
+        XCTAssertNil(response?.error)
+
+        if let request = response?.request, let contentType = request.value(forHTTPHeaderField: "Content-Type") {
+            XCTAssertEqual(contentType, formData.contentType)
+            XCTAssertTrue(contentType.contains("boundary=custom-test-boundary"))
+        } else {
+            XCTFail("Content-Type header value should not be nil")
+        }
+    }
+
     func testThatUploadingMultipartFormDataSucceedsWithDefaultParameters() {
         // Given
         let urlString = "https://httpbin.org/post"
@@ -613,5 +646,77 @@ class UploadMultipartFormDataTestCase: BaseTestCase {
         } else {
             XCTFail("last item in downloadProgressValues should not be nil")
         }
+    }
+}
+
+final class UploadRequestEventsTestCase: BaseTestCase {
+    func testThatUploadRequestTriggersAllAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 11
+
+        eventMonitor.taskDidFinishCollectingMetrics = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateURLRequest = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidGatherMetrics = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCompleteTaskWithError = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidFinish = { (_) in expect.fulfill() }
+        eventMonitor.requestDidResume = { (_) in expect.fulfill() }
+        eventMonitor.requestDidResumeTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateUploadable = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidParseResponse = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.upload(Data("PAYLOAD".utf8),
+                                     with: URLRequest.makeHTTPBinRequest(path: "post", method: .post)).response { _ in
+            expect.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .resumed)
+    }
+
+    func testThatCancelledUploadRequestTriggersAllAppropriateLifetimeEvents() {
+        // Given
+        let eventMonitor = ClosureEventMonitor()
+        let session = Session(startRequestsImmediately: false, eventMonitors: [eventMonitor])
+
+        let expect = expectation(description: "request should receive appropriate lifetime events")
+        expect.expectedFulfillmentCount = 13
+
+        eventMonitor.taskDidFinishCollectingMetrics = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateURLRequest = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCreateTask = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidGatherMetrics = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCompleteTaskWithError = { (_, _, _) in expect.fulfill() }
+        eventMonitor.requestDidFinish = { (_) in expect.fulfill() }
+        eventMonitor.requestDidResume = { (_) in expect.fulfill() }
+        eventMonitor.requestDidCreateUploadable = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidParseResponse = { (_, _) in expect.fulfill() }
+        eventMonitor.requestDidCancel = { (_) in expect.fulfill() }
+        eventMonitor.requestDidCancelTask = { (_, _) in expect.fulfill() }
+
+        // When
+        let request = session.upload(Data("PAYLOAD".utf8),
+                                     with: URLRequest.makeHTTPBinRequest(path: "post", method: .post)).response { _ in
+                                        expect.fulfill()
+        }
+
+        eventMonitor.requestDidResumeTask = { (_, _) in
+            request.cancel()
+            expect.fulfill()
+        }
+
+        request.resume()
+
+        waitForExpectations(timeout: timeout, handler: nil)
+
+        // Then
+        XCTAssertEqual(request.state, .cancelled)
     }
 }
