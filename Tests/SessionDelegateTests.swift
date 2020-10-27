@@ -38,14 +38,15 @@ class SessionDelegateTestCase: BaseTestCase {
 
     // MARK: - Tests - Redirects
 
-    func testThatRequestWillPerformHTTPRedirectionByDefault() {
+    // Disabled due to HTTPBin issue: https://github.com/postmanlabs/httpbin/issues/617
+    func _testThatRequestWillPerformHTTPRedirectionByDefault() {
         // Given
         let redirectURLString = "https://www.apple.com/"
         let urlString = "https://httpbin.org/redirect-to?url=\(redirectURLString)"
 
         let expectation = self.expectation(description: "Request should redirect to \(redirectURLString)")
 
-        var response: DataResponse<Data?>?
+        var response: DataResponse<Data?, AFError>?
 
         // When
         manager.request(urlString)
@@ -66,14 +67,15 @@ class SessionDelegateTestCase: BaseTestCase {
         XCTAssertEqual(response?.response?.statusCode, 200)
     }
 
-    func testThatRequestWillPerformRedirectionMultipleTimesByDefault() {
+    // Disabled due to HTTPBin issue: https://github.com/postmanlabs/httpbin/issues/617
+    func _testThatRequestWillPerformRedirectionMultipleTimesByDefault() {
         // Given
         let redirectURLString = "https://httpbin.org/get"
         let urlString = "https://httpbin.org/redirect/5"
 
         let expectation = self.expectation(description: "Request should redirect to \(redirectURLString)")
 
-        var response: DataResponse<Data?>?
+        var response: DataResponse<Data?, AFError>?
 
         // When
         manager.request(urlString)
@@ -103,7 +105,7 @@ class SessionDelegateTestCase: BaseTestCase {
         var resumedTaskRequest: Request?
         var completedTaskRequest: Request?
         var completedRequest: Request?
-        var requestResponse: DataResponse<Data?>?
+        var requestResponse: DataResponse<Data?, AFError>?
         let expect = expectation(description: "request should complete")
 
         // When
@@ -157,11 +159,11 @@ class SessionDelegateTestCase: BaseTestCase {
         var resumedTaskRequest: Request?
         var completedTaskRequest: Request?
         var completedRequest: Request?
-        var requestResponse: DownloadResponse<URL?>?
+        var requestResponse: DownloadResponse<URL?, AFError>?
         let expect = expectation(description: "request should complete")
 
         // When
-        let request = session.download("https://httpbin.org/get").response { (response) in
+        let request = session.download("https://httpbin.org/get").response { response in
             requestResponse = response
             expect.fulfill()
         }

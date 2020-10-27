@@ -1,4 +1,4 @@
-// swift-tools-version:5.0
+// swift-tools-version:5.1
 //
 //  Package.swift
 //
@@ -25,23 +25,21 @@
 
 import PackageDescription
 
-let package = Package(
-    name: "Alamofire",
-    platforms: [
-        .macOS(.v10_12),
-        .iOS(.v10),
-        .tvOS(.v10),
-        .watchOS(.v3)
-    ],
-    products: [
-        .library(
-            name: "Alamofire",
-            targets: ["Alamofire"])
-    ],
-    targets: [
-        .target(
-            name: "Alamofire",
-            path: "Source")
-    ],
-    swiftLanguageVersions: [.v5]
-)
+let package = Package(name: "Alamofire",
+                      platforms: [.macOS(.v10_12),
+                                  .iOS(.v10),
+                                  .tvOS(.v10),
+                                  .watchOS(.v3)],
+                      products: [.library(name: "Alamofire",
+                                          targets: ["Alamofire"])],
+                      targets: [.target(name: "Alamofire",
+                                        path: "Source",
+                                        linkerSettings: [.linkedFramework("CFNetwork",
+                                                                          .when(platforms: [.iOS,
+                                                                                            .macOS,
+                                                                                            .tvOS,
+                                                                                            .watchOS]))]),
+                                .testTarget(name: "AlamofireTests",
+                                            dependencies: ["Alamofire"],
+                                            path: "Tests")],
+                      swiftLanguageVersions: [.v5])
